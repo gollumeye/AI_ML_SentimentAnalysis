@@ -1,9 +1,12 @@
 import json
 import re
+
+from transformers import BertTokenizer
+
 from contractions import contractions
 from feature_engineering import get_context_embedding
 
-NUMBER_OF_EXAMPLES = 3000 #should be dividable by 3
+NUMBER_OF_EXAMPLES = 300 #must be dividable by 3
 
 def preprocess_text(text_example):
     text_example = text_example.lower()
@@ -17,6 +20,33 @@ def preprocess_text(text_example):
 
     return text_example
 
+def get_data_for_bert(num_texts_per_label=100):
+    with open('../surveys.json', 'r') as file:
+        data = json.load(file)
+
+    texts = []
+    labels = []
+    count_per_label = {'positive': 0, 'neutral': 0, 'negative': 0}
+
+    for entry in data:
+        label = entry['label']
+        if count_per_label[label] < num_texts_per_label:
+            texts.append(entry['text'])
+            labels.append(label)
+            count_per_label[label] += 1
+
+    print("Number of instances per label:")
+    for label, count in count_per_label.items():
+        print(f"{label}: {count}")
+
+    preprocessed_texts = [preprocess_text(text) for text in texts]
+    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+    tokenized_texts = tokenizer(preprocessed_texts, padding=True, truncation=True, return_tensors='pt') #pt -> return pytorch tensor
+
+    label_map = {'positive': 0, 'neutral': 1, 'negative': 2} #bert needs numerical labels
+    numerical_labels = [label_map[label] for label in labels]
+
+    return tokenized_texts, numerical_labels
 
 def get_data():
     with open('../surveys.json', 'r') as file:
