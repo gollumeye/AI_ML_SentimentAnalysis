@@ -1,15 +1,20 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from sklearn.metrics import accuracy_score, classification_report
+from sklearn.metrics import accuracy_score, classification_report, roc_auc_score, roc_curve, matthews_corrcoef
 from transformers import BertModel
 from data_preparation import get_data_for_bert
 from tqdm import tqdm
 import random
+import matplotlib.pyplot as plt
+from itertools import cycle
+from sklearn.preprocessing import label_binarize
 
-TRAIN_SIZE = 40
-TEST_SIZE = 10
+TEST_SET_PORTION = 0.2 #must be between 0 and 1
+NUMBER_OF_EXAMPLES_PER_LABEL = 200
 
+TEST_SIZE = (NUMBER_OF_EXAMPLES_PER_LABEL*3)*TEST_SET_PORTION
+TRAIN_SIZE = (NUMBER_OF_EXAMPLES_PER_LABEL*3)*(1-TEST_SET_PORTION)
 
 """
 Model: BERT Model + additional Linear Layer on top of it
@@ -28,9 +33,7 @@ class BERTClassifier(nn.Module):
         raw_scores = self.sentimentClassifier(pooled_output)  # pass output from BERT to classifier to get line vulnerability predictions
         return raw_scores
 
-
 #-----------------------------------------------------------------------------------------------------------------------
-
 
 """
 Data Preparation
@@ -51,12 +54,16 @@ def split_data_into_train_and_test(tokenized_texts, numerical_labels, train_size
 
     train_data = []
     test_data = []
+    train_size_per_label = int(train_size/3)
+    test_size_per_label = int(test_size/3)
     for label, instances in examples_per_label.items():
-        if len(instances) < train_size + test_size:
+        if len(instances) < train_size_per_label + test_size_per_label:
             print(f"Not enough data examples for label {label}")
+            print("Number of instances: ", len(instances))
+            print("Train + test size: ", train_size_per_label + test_size)
             continue
-        train_data.extend(instances[:train_size])
-        test_data.extend(instances[train_size:train_size + test_size])
+        train_data.extend(instances[:train_size_per_label])
+        test_data.extend(instances[train_size_per_label:train_size_per_label + test_size_per_label])
 
     if not train_data or not test_data:
         raise ValueError("Not enough data for training or testing.")
@@ -73,9 +80,8 @@ def split_data_into_train_and_test(tokenized_texts, numerical_labels, train_size
 
     return X_train_input_ids, X_train_attention_mask, y_train, X_test_input_ids, X_test_attention_mask, y_test
 
-
 print("get data...")
-tokenized_texts, numerical_labels = get_data_for_bert(num_texts_per_label=50)
+tokenized_texts, numerical_labels = get_data_for_bert(NUMBER_OF_EXAMPLES_PER_LABEL)
 
 print("split data into test and training set...")
 X_train_input_ids, X_train_attention_mask, y_train, X_test_input_ids, X_test_attention_mask, y_test = split_data_into_train_and_test(tokenized_texts, numerical_labels)
@@ -83,9 +89,7 @@ X_train_input_ids, X_train_attention_mask, y_train, X_test_input_ids, X_test_att
 model = BERTClassifier(BertModel.from_pretrained('bert-base-uncased'), num_classes=3)
 optimizer = optim.Adam(model.parameters(), lr=1e-5)
 
-
 #-----------------------------------------------------------------------------------------------------------------------
-
 
 """
 Training Loop-
@@ -95,7 +99,7 @@ Training Loop-
 -> Loss calculated for each batch and parameters of model optimized
 """
 print("Training BERT Classifier...")
-num_epochs = 30
+num_epochs = 10
 batch_size = 8
 for epoch in range(num_epochs):
     print(f"Epoch {epoch + 1}/{num_epochs}")
@@ -120,9 +124,7 @@ for epoch in range(num_epochs):
     epoch_loss = total_loss / len(X_train_input_ids)
     print(f"Epoch {epoch + 1} Loss: {epoch_loss:.4f}")
 
-
 #-----------------------------------------------------------------------------------------------------------------------
-
 
 """
 Testing the Model
@@ -132,6 +134,7 @@ model.eval()
 
 all_actual_labels = []
 all_predicted_labels = []
+all_raw_scores = [] #needed for ROC and AUC
 
 with torch.no_grad():
     with tqdm(total=len(X_test_input_ids)) as progress_bar:
@@ -140,19 +143,59 @@ with torch.no_grad():
             attention_mask = X_test_attention_mask[i:i + batch_size]
             raw_scores = model(input_ids=input_ids, attention_mask=attention_mask)
 
-            predicted_lables = torch.argmax(raw_scores, dim=1)
+            predicted_labels = torch.argmax(raw_scores, dim=1)
             all_actual_labels.extend(y_test[i:i + batch_size].tolist())
-            all_predicted_labels.extend(predicted_lables.tolist())
+            all_predicted_labels.extend(predicted_labels.tolist())
+            all_raw_scores.extend(raw_scores.tolist())
 
             progress_bar.update(batch_size)
 
-
 #-----------------------------------------------------------------------------------------------------------------------
-
 
 """
 Evaluation
 -> Accuracy, Precision, Recall, F1-Score
+-> MMC: -1 worst, 0 random, 1 best
+-> ROC curve with AUC
 """
+
+print("Class 0: Positive")
+print("Class 1: Neutral")
+print("Class 2: Negative")
+
+
 print("Accuracy:", accuracy_score(all_actual_labels, all_predicted_labels))
 print(classification_report(all_actual_labels, all_predicted_labels))
+mcc = matthews_corrcoef(all_actual_labels, all_predicted_labels)
+print("MCC:", mcc)
+
+#ROC curve and AUC per class:
+y_test_binarized = label_binarize(all_actual_labels, classes=[0, 1, 2])
+all_raw_scores = torch.tensor(all_raw_scores).cpu().numpy()
+fpr = dict()
+tpr = dict()
+roc_auc = dict()
+n_classes = 3
+
+for i in range(n_classes):
+    fpr[i], tpr[i], _ = roc_curve(y_test_binarized[:, i], all_raw_scores[:, i])
+    roc_auc[i] = roc_auc_score(y_test_binarized[:, i], all_raw_scores[:, i])
+
+fpr["micro"], tpr["micro"], _ = roc_curve(y_test_binarized.ravel(), all_raw_scores.ravel())
+roc_auc["micro"] = roc_auc_score(y_test_binarized, all_raw_scores, average="micro")
+
+plt.figure()
+colors = cycle(['lightblue', 'orange', 'lightgreen'])
+for i, color in zip(range(n_classes), colors):
+    plt.plot(fpr[i], tpr[i], color=color, lw=2, label='ROC for class {0} (AUC = {1:0.2f})'.format(i, roc_auc[i]))
+
+plt.plot(fpr["micro"], tpr["micro"], color='red', linestyle=':', linewidth=4, label='average ROC curve (AUC = {0:0.2f})'.format(roc_auc["micro"]))
+
+plt.plot([0, 1], [0, 1], lw=2, linestyle='--')
+plt.xlim([0.0, 1.0])
+plt.ylim([0.0, 1.05])
+plt.xlabel('FP Rate')
+plt.ylabel('TP Rate')
+plt.title('ROC')
+plt.legend(loc="lower right")
+plt.show()

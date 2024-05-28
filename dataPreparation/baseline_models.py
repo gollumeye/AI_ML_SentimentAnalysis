@@ -19,6 +19,46 @@ X_test = np.vstack(X_test_positive + X_test_negative + X_test_neutral)
 y_train = y_train_positive + y_train_negative + y_train_neutral
 y_test = y_test_positive + y_test_negative + y_test_neutral
 
+print("Baseline Models:")
+
+print("------------------------------------")
+
+print("RANDOM FOREST CLASSIFIER:")
+print("training RFC...")
+clf = RandomForestClassifier(random_state=0)
+clf.fit(X_train, y_train)
+print("testing RFC...")
+y_pred = clf.predict(X_test)
+print("Accuracy:", accuracy_score(y_test, y_pred))
+print("Classification Report:")
+print(classification_report(y_test, y_pred))
+
+print("-------------------------------------")
+
+print("SUPPORT VECTOR MACHINE:")
+print("training SVM...")
+svm = SVC(kernel='linear', random_state=0)
+svm.fit(X_train, y_train)
+print("testing SVM...")
+y_pred = svm.predict(X_test)
+print("SVM:")
+print("Accuracy:", accuracy_score(y_test, y_pred))
+print("Classification Report:")
+print(classification_report(y_test, y_pred))
+
+print("-------------------------------------")
+
+print("NAIVE BAYES:")
+nb = GaussianNB()
+print("training bayes classifier...")
+nb.fit(X_train, y_train)
+print("testing bayes classifier...")
+y_pred = nb.predict(X_test)
+print("Accuracy:", accuracy_score(y_test, y_pred))
+print("Classification Report:")
+print(classification_report(y_test, y_pred))
+
+"""
 print("Choose model:")
 print("1: Random Forest Classifier")
 print("2: Support Vector Machine")
@@ -59,3 +99,5 @@ elif choice == '3':
     print("Accuracy:", accuracy_score(y_test, y_pred))
     print("Classification Report:")
     print(classification_report(y_test, y_pred))
+    
+"""
