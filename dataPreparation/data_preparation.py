@@ -2,9 +2,8 @@ import json
 import re
 
 from transformers import BertTokenizer
-
-from contractions import contractions
-from feature_engineering import get_context_embedding
+from dataPreparation.contractions import contractions
+from dataPreparation.feature_engineering import get_context_embedding
 
 NUMBER_OF_EXAMPLES_FOR_BASELINE_MODELS = 300 #must be dividable by 3
 
@@ -21,7 +20,7 @@ def preprocess_text(text_example):
     return text_example
 
 def get_data_for_bert(num_texts_per_label):
-    with open('../surveys.json', 'r') as file:
+    with open('surveys.json', 'r') as file:
         data = json.load(file)
 
     texts = []
@@ -49,7 +48,7 @@ def get_data_for_bert(num_texts_per_label):
     return tokenized_texts, numerical_labels
 
 def get_data():
-    with open('../surveys.json', 'r') as file:
+    with open('surveys.json', 'r') as file:
         data = json.load(file)
 
     X_positive = []

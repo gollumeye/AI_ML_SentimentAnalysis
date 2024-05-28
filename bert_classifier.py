@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 from sklearn.metrics import accuracy_score, classification_report, roc_auc_score, roc_curve, matthews_corrcoef
 from transformers import BertModel
-from data_preparation import get_data_for_bert
+from dataPreparation.data_preparation import get_data_for_bert
 from tqdm import tqdm
 import random
 import matplotlib.pyplot as plt

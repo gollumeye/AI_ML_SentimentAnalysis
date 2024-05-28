@@ -3,7 +3,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, classification_report
 from sklearn.naive_bayes import GaussianNB
 from sklearn.svm import SVC
-from data_preparation import get_data
+from dataPreparation.data_preparation import get_data
 import numpy as np
 
 print("getting data...")
