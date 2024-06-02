@@ -9,12 +9,30 @@ import random
 import matplotlib.pyplot as plt
 from itertools import cycle
 from sklearn.preprocessing import label_binarize
+import wandb
+
+
+#-----------------------------------------------------------------------------------------------------------------------
+
 
 TEST_SET_PORTION = 0.2 #must be between 0 and 1
-NUMBER_OF_EXAMPLES_PER_LABEL = 200
+NUMBER_OF_EXAMPLES_PER_LABEL = 50
 
 TEST_SIZE = (NUMBER_OF_EXAMPLES_PER_LABEL*3)*TEST_SET_PORTION
 TRAIN_SIZE = (NUMBER_OF_EXAMPLES_PER_LABEL*3)*(1-TEST_SET_PORTION)
+
+#HYPERPARAMETERS:
+LEARNING_RATE = 1e-5
+NUMBER_OF_EPOCHS = 3
+DROPOUT_RATE = 0.1
+BATCH_SIZE = 8
+
+wandb.login(key='dcadd79ea8ec3fd9f6a9ebb81851bcfedd0a1b79')
+wandb.init(project='AI_and_ML_project_sentiment_analysis', name='sentiment_analysis')
+
+
+#-----------------------------------------------------------------------------------------------------------------------
+
 
 """
 Model: BERT Model + additional Linear Layer on top of it
@@ -24,7 +42,7 @@ class BERTClassifier(nn.Module):
     def __init__(self, bert_model, num_classes):
         super(BERTClassifier, self).__init__()
         self.bert = bert_model
-        # self.dropout = torch.nn.Dropout(0.1) # drop random 10% to prevent overfitting
+        self.dropout = torch.nn.Dropout(DROPOUT_RATE) # drop random 10% to prevent overfitting
         self.sentimentClassifier = nn.Linear(self.bert.config.hidden_size, num_classes)
 
     def forward(self, input_ids, attention_mask):  # attention mask specifies which of the tokens from input_ids should be taken into account
@@ -87,7 +105,7 @@ print("split data into test and training set...")
 X_train_input_ids, X_train_attention_mask, y_train, X_test_input_ids, X_test_attention_mask, y_test = split_data_into_train_and_test(tokenized_texts, numerical_labels)
 
 model = BERTClassifier(BertModel.from_pretrained('bert-base-uncased'), num_classes=3)
-optimizer = optim.Adam(model.parameters(), lr=1e-5)
+optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
 #-----------------------------------------------------------------------------------------------------------------------
 
@@ -99,18 +117,16 @@ Training Loop-
 -> Loss calculated for each batch and parameters of model optimized
 """
 print("Training BERT Classifier...")
-num_epochs = 10
-batch_size = 8
-for epoch in range(num_epochs):
-    print(f"Epoch {epoch + 1}/{num_epochs}")
+for epoch in range(NUMBER_OF_EPOCHS):
+    print(f"Epoch {epoch + 1}/{NUMBER_OF_EPOCHS}")
     total_loss = 0.0
     model.train()
     with tqdm(total=len(X_train_input_ids)) as progress_bar:
-        for i in range(0, len(X_train_input_ids), batch_size):
+        for i in range(0, len(X_train_input_ids), BATCH_SIZE):
             optimizer.zero_grad()
-            input_ids = X_train_input_ids[i:i + batch_size]
-            attention_mask = X_train_attention_mask[i:i + batch_size]
-            labels = y_train[i:i + batch_size]
+            input_ids = X_train_input_ids[i:i + BATCH_SIZE]
+            attention_mask = X_train_attention_mask[i:i + BATCH_SIZE]
+            labels = y_train[i:i + BATCH_SIZE]
 
             outputs = model(input_ids=input_ids, attention_mask=attention_mask)
             loss = nn.CrossEntropyLoss()(outputs, labels)
@@ -118,11 +134,14 @@ for epoch in range(num_epochs):
             optimizer.step()
 
             total_loss += loss.item()
-            progress_bar.update(batch_size)
+            progress_bar.update(BATCH_SIZE)
             progress_bar.set_description(f"Training Loss: {loss.item():.4f}")
+
+            wandb.log({'training_loss': loss.item()})
 
     epoch_loss = total_loss / len(X_train_input_ids)
     print(f"Epoch {epoch + 1} Loss: {epoch_loss:.4f}")
+    wandb.log({'epoch_loss': epoch_loss})
 
 #-----------------------------------------------------------------------------------------------------------------------
 
@@ -138,17 +157,17 @@ all_raw_scores = [] #needed for ROC and AUC
 
 with torch.no_grad():
     with tqdm(total=len(X_test_input_ids)) as progress_bar:
-        for i in range(0, len(X_test_input_ids), batch_size):
-            input_ids = X_test_input_ids[i:i + batch_size]
-            attention_mask = X_test_attention_mask[i:i + batch_size]
+        for i in range(0, len(X_test_input_ids), BATCH_SIZE):
+            input_ids = X_test_input_ids[i:i + BATCH_SIZE]
+            attention_mask = X_test_attention_mask[i:i + BATCH_SIZE]
             raw_scores = model(input_ids=input_ids, attention_mask=attention_mask)
 
             predicted_labels = torch.argmax(raw_scores, dim=1)
-            all_actual_labels.extend(y_test[i:i + batch_size].tolist())
+            all_actual_labels.extend(y_test[i:i + BATCH_SIZE].tolist())
             all_predicted_labels.extend(predicted_labels.tolist())
             all_raw_scores.extend(raw_scores.tolist())
 
-            progress_bar.update(batch_size)
+            progress_bar.update(BATCH_SIZE)
 
 #-----------------------------------------------------------------------------------------------------------------------
 
@@ -163,11 +182,15 @@ print("Class 0: Positive")
 print("Class 1: Neutral")
 print("Class 2: Negative")
 
-
-print("Accuracy:", accuracy_score(all_actual_labels, all_predicted_labels))
+accuracy = accuracy_score(all_actual_labels, all_predicted_labels)
+print("Accuracy:", accuracy)
 print(classification_report(all_actual_labels, all_predicted_labels))
 mcc = matthews_corrcoef(all_actual_labels, all_predicted_labels)
 print("MCC:", mcc)
+
+report = classification_report(all_actual_labels, all_predicted_labels, output_dict=True)
+wandb.log({'accuracy': accuracy, 'classification_report': report})
+wandb.finish()
 
 #ROC curve and AUC per class:
 y_test_binarized = label_binarize(all_actual_labels, classes=[0, 1, 2])

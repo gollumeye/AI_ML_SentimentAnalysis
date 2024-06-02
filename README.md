@@ -1,3 +1,8 @@
+
+Step 0: Install dependencies
+
+--------------------------------------
+
 Step 1: Add Dataset (too big for Git)
 
 https://www.kaggle.com/datasets/chatrli/survey-mood
