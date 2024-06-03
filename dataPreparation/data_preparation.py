@@ -1,5 +1,6 @@
 import json
 import re
+import random
 
 from transformers import BertTokenizer
 from dataPreparation.contractions import contractions
@@ -22,6 +23,8 @@ def preprocess_text(text_example):
 def get_data_for_bert(num_texts_per_label):
     with open('surveys.json', 'r') as file:
         data = json.load(file)
+
+    random.shuffle(data)
 
     texts = []
     labels = []
