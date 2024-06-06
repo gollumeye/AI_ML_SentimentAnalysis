@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from sklearn.metrics import accuracy_score, classification_report, roc_auc_score, roc_curve, matthews_corrcoef
+from sklearn.metrics import accuracy_score, classification_report, roc_auc_score, roc_curve, matthews_corrcoef, \
+    confusion_matrix
 from transformers import BertModel
 from dataPreparation.data_preparation import get_data_for_bert
 from tqdm import tqdm
@@ -10,6 +11,8 @@ import matplotlib.pyplot as plt
 from itertools import cycle
 from sklearn.preprocessing import label_binarize
 import wandb
+import pandas as pd
+import seaborn as sns
 
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -28,7 +31,15 @@ DROPOUT_RATE = 0.1
 BATCH_SIZE = 8
 
 wandb.login(key='dcadd79ea8ec3fd9f6a9ebb81851bcfedd0a1b79')
-wandb.init(project='AI_and_ML_project_sentiment_analysis', name='sentiment_analysis')
+wandb.init(project='AI_and_ML_project_sentiment_analysis',
+           name=f'bert_based_classifier_num={NUMBER_OF_EXAMPLES_PER_LABEL*3}_lr={LEARNING_RATE}_epochs={NUMBER_OF_EPOCHS}_batchsize={BATCH_SIZE}',
+           config={
+               "learning_rate": LEARNING_RATE,
+               "architecture": "NN",
+               "dataset": "Surveys",
+               "epochs": NUMBER_OF_EPOCHS,
+               "batch_size": BATCH_SIZE
+           })
 
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -141,7 +152,7 @@ for epoch in range(NUMBER_OF_EPOCHS):
 
     epoch_loss = total_loss / len(X_train_input_ids)
     print(f"Epoch {epoch + 1} Loss: {epoch_loss:.4f}")
-    wandb.log({'epoch_loss': epoch_loss})
+    wandb.log({'epoch_loss': epoch_loss, 'epoch': epoch})
 
 #-----------------------------------------------------------------------------------------------------------------------
 
@@ -188,9 +199,35 @@ print(classification_report(all_actual_labels, all_predicted_labels))
 mcc = matthews_corrcoef(all_actual_labels, all_predicted_labels)
 print("MCC:", mcc)
 
+
 report = classification_report(all_actual_labels, all_predicted_labels, output_dict=True)
-wandb.log({'accuracy': accuracy, 'classification_report': report})
-wandb.finish()
+metrics = {
+    'accuracy': accuracy,
+    'mcc': mcc,
+    'precision_0': report['0']['precision'],
+    'recall_0': report['0']['recall'],
+    'f1_score_0': report['0']['f1-score'],
+    'precision_1': report['1']['precision'],
+    'recall_1': report['1']['recall'],
+    'f1_score_1': report['1']['f1-score'],
+    'precision_2': report['2']['precision'],
+    'recall_2': report['2']['recall'],
+    'f1_score_2': report['2']['f1-score'],
+}
+wandb.log(metrics)
+
+table = wandb.Table(columns=["Metric", "Value"])
+table.add_data("Accuracy", accuracy)
+table.add_data("MCC", mcc)
+for label in [0, 1, 2]:
+    table.add_data(f"Precision_{label}", report[str(label)]['precision'])
+    table.add_data(f"Recall_{label}", report[str(label)]['recall'])
+    table.add_data(f"F1-Score_{label}", report[str(label)]['f1-score'])
+wandb.log({"Metrics Table": table})
+
+cm = confusion_matrix(all_actual_labels, all_predicted_labels)
+df_cm = pd.DataFrame(cm, index=[0, 1, 2], columns=[0, 1, 2])
+wandb.log({"confusion_matrix": wandb.Image(sns.heatmap(df_cm, annot=True, fmt="d", cmap="Blues"))})
 
 #ROC curve and AUC per class:
 y_test_binarized = label_binarize(all_actual_labels, classes=[0, 1, 2])
@@ -221,4 +258,10 @@ plt.xlabel('FP Rate')
 plt.ylabel('TP Rate')
 plt.title('ROC')
 plt.legend(loc="lower right")
+
+roc_plot_path = "roc_curve.png"
+plt.savefig(roc_plot_path)
+wandb.log({"roc_curve": wandb.Image(roc_plot_path)})
+
 plt.show()
+wandb.finish()

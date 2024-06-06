@@ -1,13 +1,21 @@
+from matplotlib import pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score, classification_report
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 from sklearn.naive_bayes import GaussianNB
 from sklearn.svm import SVC
 from dataPreparation.data_preparation import get_data
 import numpy as np
+import wandb
+import seaborn as sns
+import pandas as pd
+
+NUMBER_OF_EXAMPLES_FOR_BASELINE_MODELS = 300 #must be dividable by 3
+
+wandb.login(key='dcadd79ea8ec3fd9f6a9ebb81851bcfedd0a1b79')
 
 print("getting data...")
-X_positive, y_positive, X_negative, y_negative, X_neutral, y_neutral = get_data()
+X_positive, y_positive, X_negative, y_negative, X_neutral, y_neutral = get_data(NUMBER_OF_EXAMPLES_FOR_BASELINE_MODELS)
 
 print("splitting data...")
 X_train_positive, X_test_positive, y_train_positive, y_test_positive = train_test_split(X_positive, y_positive, test_size=0.2, random_state=0)
@@ -23,6 +31,11 @@ print("Baseline Models:")
 
 print("------------------------------------")
 
+wandb.init(project='AI_and_ML_project_sentiment_analysis', name=f'rfc_{NUMBER_OF_EXAMPLES_FOR_BASELINE_MODELS}', config={
+    "architecture": "RFC",
+    "dataset": "Surveys"
+    })
+
 print("RANDOM FOREST CLASSIFIER:")
 print("training RFC...")
 clf = RandomForestClassifier(random_state=0)
@@ -32,8 +45,19 @@ y_pred = clf.predict(X_test)
 print("Accuracy:", accuracy_score(y_test, y_pred))
 print("Classification Report:")
 print(classification_report(y_test, y_pred))
+wandb.log({"accuracy": accuracy_score, "classification_report": classification_report(y_test, y_pred, output_dict=True)})
+cm = confusion_matrix(y_test, y_pred)
+df_cm = pd.DataFrame(cm, index=[0, 1, 2], columns=[0, 1, 2])
+wandb.log({"confusion_matrix": wandb.Image(sns.heatmap(df_cm, annot=True, fmt="d", cmap="Blues"))})
+
+wandb.finish()
 
 print("-------------------------------------")
+
+wandb.init(project='AI_and_ML_project_sentiment_analysis', name=f'svm_{NUMBER_OF_EXAMPLES_FOR_BASELINE_MODELS}', config={
+    "architecture": "SVM",
+    "dataset": "Surveys"
+    })
 
 print("SUPPORT VECTOR MACHINE:")
 print("training SVM...")
@@ -45,8 +69,19 @@ print("SVM:")
 print("Accuracy:", accuracy_score(y_test, y_pred))
 print("Classification Report:")
 print(classification_report(y_test, y_pred))
+wandb.log({"accuracy": accuracy_score, "classification_report": classification_report(y_test, y_pred, output_dict=True)})
+cm = confusion_matrix(y_test, y_pred)
+df_cm = pd.DataFrame(cm, index=[0, 1, 2], columns=[0, 1, 2])
+wandb.log({"confusion_matrix": wandb.Image(sns.heatmap(df_cm, annot=True, fmt="d", cmap="Blues"))})
+
+wandb.finish()
 
 print("-------------------------------------")
+
+wandb.init(project='AI_and_ML_project_sentiment_analysis', name=f'nb_{NUMBER_OF_EXAMPLES_FOR_BASELINE_MODELS}', config={
+    "architecture": "Naive Bayes",
+    "dataset": "Surveys"
+    })
 
 print("NAIVE BAYES:")
 nb = GaussianNB()
@@ -57,47 +92,9 @@ y_pred = nb.predict(X_test)
 print("Accuracy:", accuracy_score(y_test, y_pred))
 print("Classification Report:")
 print(classification_report(y_test, y_pred))
+wandb.log({"accuracy": accuracy_score, "classification_report": classification_report(y_test, y_pred, output_dict=True)})
+cm = confusion_matrix(y_test, y_pred)
+df_cm = pd.DataFrame(cm, index=[0, 1, 2], columns=[0, 1, 2])
+wandb.log({"confusion_matrix": wandb.Image(sns.heatmap(df_cm, annot=True, fmt="d", cmap="Blues"))})
 
-"""
-print("Choose model:")
-print("1: Random Forest Classifier")
-print("2: Support Vector Machine")
-print("3: Naive Bayes Classifier")
-choice = input("Enter number: ")
-
-if choice == '1':
-    print("training RFC...")
-    clf = RandomForestClassifier(random_state=0)
-    clf.fit(X_train, y_train)
-
-    print("testing RFC...")
-    y_pred = clf.predict(X_test)
-    print("Random Forest:")
-    print("Accuracy:", accuracy_score(y_test, y_pred))
-    print("Classification Report:")
-    print(classification_report(y_test, y_pred))
-
-
-elif choice == '2':
-
-    print("training SVM...")
-    svm = SVC(kernel='linear', random_state=0)
-    svm.fit(X_train, y_train)
-
-    print("testing SVM...")
-    y_pred = svm.predict(X_test)
-    print("SVM:")
-    print("Accuracy:", accuracy_score(y_test, y_pred))
-    print("Classification Report:")
-    print(classification_report(y_test, y_pred))
-
-elif choice == '3':
-    nb = GaussianNB()
-    nb.fit(X_train, y_train)
-    y_pred = nb.predict(X_test)
-    print("Naive Bayes:")
-    print("Accuracy:", accuracy_score(y_test, y_pred))
-    print("Classification Report:")
-    print(classification_report(y_test, y_pred))
-    
-"""
+wandb.finish()

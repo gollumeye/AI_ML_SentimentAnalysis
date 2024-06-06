@@ -6,8 +6,6 @@ from transformers import BertTokenizer
 from dataPreparation.contractions import contractions
 from dataPreparation.feature_engineering import get_context_embedding
 
-NUMBER_OF_EXAMPLES_FOR_BASELINE_MODELS = 300 #must be dividable by 3
-
 def preprocess_text(text_example):
     text_example = text_example.lower()
 
@@ -44,15 +42,16 @@ def get_data_for_bert(num_texts_per_label):
     preprocessed_texts = [preprocess_text(text) for text in texts]
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
     tokenized_texts = tokenizer(preprocessed_texts, padding=True, truncation=True, return_tensors='pt') #pt -> return pytorch tensor
-
     label_map = {'positive': 0, 'neutral': 1, 'negative': 2} #bert needs numerical labels
     numerical_labels = [label_map[label] for label in labels]
 
     return tokenized_texts, numerical_labels
 
-def get_data():
+def get_data(number_of_examples):
     with open('surveys.json', 'r') as file:
         data = json.load(file)
+
+    random.shuffle(data)
 
     X_positive = []
     y_positive = []
@@ -67,22 +66,22 @@ def get_data():
 
     print("feature engineering...")
     for entry in data:
-        if count_positive + count_negative + count_neutral >= NUMBER_OF_EXAMPLES_FOR_BASELINE_MODELS:
+        if count_positive + count_negative + count_neutral >= number_of_examples:
             break
 
         text = entry['text']
         label = entry['label']
         preprocessed_text = preprocess_text(text)
 
-        if label == 'positive' and count_positive < (NUMBER_OF_EXAMPLES_FOR_BASELINE_MODELS / 3):
+        if label == 'positive' and count_positive < (number_of_examples / 3):
             X_positive.append(get_context_embedding(preprocessed_text))
             y_positive.append(label)
             count_positive += 1
-        elif label == 'negative' and count_negative < (NUMBER_OF_EXAMPLES_FOR_BASELINE_MODELS / 3):
+        elif label == 'negative' and count_negative < (number_of_examples / 3):
             X_negative.append(get_context_embedding(preprocessed_text))
             y_negative.append(label)
             count_negative += 1
-        elif label == 'neutral' and count_neutral < (NUMBER_OF_EXAMPLES_FOR_BASELINE_MODELS / 3):
+        elif label == 'neutral' and count_neutral < (number_of_examples / 3):
             X_neutral.append(get_context_embedding(preprocessed_text))
             y_neutral.append(label)
             count_neutral += 1
