@@ -10,7 +10,7 @@ import wandb
 import seaborn as sns
 import pandas as pd
 
-NUMBER_OF_EXAMPLES_FOR_BASELINE_MODELS = 300 #must be dividable by 3
+NUMBER_OF_EXAMPLES_FOR_BASELINE_MODELS = 30000 #must be dividable by 3
 
 wandb.login(key='dcadd79ea8ec3fd9f6a9ebb81851bcfedd0a1b79')
 
