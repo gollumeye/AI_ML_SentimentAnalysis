@@ -4,7 +4,7 @@ import torch.optim as optim
 from sklearn.metrics import accuracy_score, classification_report, roc_auc_score, roc_curve, matthews_corrcoef, \
     confusion_matrix
 from transformers import BertModel
-from dataPreparation.data_preparation import get_data_for_bert
+from dataPreparation.data_preparation import get_survey_data_for_bert, get_tweet_data_for_bert
 from tqdm import tqdm
 import random
 import matplotlib.pyplot as plt
@@ -24,6 +24,8 @@ NUMBER_OF_EXAMPLES_PER_LABEL = 1000
 TEST_SIZE = (NUMBER_OF_EXAMPLES_PER_LABEL*3)*TEST_SET_PORTION
 TRAIN_SIZE = (NUMBER_OF_EXAMPLES_PER_LABEL*3)*(1-TEST_SET_PORTION)
 
+DATASET = 'Tweets' #either 'Tweets' or 'Surveys'
+
 #HYPERPARAMETERS:
 LEARNING_RATE = 1e-5
 NUMBER_OF_EPOCHS = 5
@@ -32,13 +34,14 @@ BATCH_SIZE = 8
 
 wandb.login(key='dcadd79ea8ec3fd9f6a9ebb81851bcfedd0a1b79')
 wandb.init(project='AI_and_ML_project_sentiment_analysis',
-           name=f'bert_based_classifier_num={NUMBER_OF_EXAMPLES_PER_LABEL*3}_lr={LEARNING_RATE}_epochs={NUMBER_OF_EPOCHS}_batchsize={BATCH_SIZE}',
+           name=f'bert_based_classifier_dataset={DATASET}_num={NUMBER_OF_EXAMPLES_PER_LABEL*3}_lr={LEARNING_RATE}_epochs={NUMBER_OF_EPOCHS}_batchsize={BATCH_SIZE}',
            config={
                "learning_rate": LEARNING_RATE,
                "architecture": "NN",
                "dataset": "Surveys",
                "epochs": NUMBER_OF_EPOCHS,
-               "batch_size": BATCH_SIZE
+               "batch_size": BATCH_SIZE,
+               "dataset": DATASET
            })
 
 
@@ -110,7 +113,11 @@ def split_data_into_train_and_test(tokenized_texts, numerical_labels, train_size
     return X_train_input_ids, X_train_attention_mask, y_train, X_test_input_ids, X_test_attention_mask, y_test
 
 print("get data...")
-tokenized_texts, numerical_labels = get_data_for_bert(NUMBER_OF_EXAMPLES_PER_LABEL)
+
+if DATASET == 'Surveys':
+    tokenized_texts, numerical_labels = get_survey_data_for_bert(NUMBER_OF_EXAMPLES_PER_LABEL)
+else:
+    tokenized_texts, numerical_labels = get_tweet_data_for_bert(NUMBER_OF_EXAMPLES_PER_LABEL)
 
 print("split data into test and training set...")
 X_train_input_ids, X_train_attention_mask, y_train, X_test_input_ids, X_test_attention_mask, y_test = split_data_into_train_and_test(tokenized_texts, numerical_labels)
