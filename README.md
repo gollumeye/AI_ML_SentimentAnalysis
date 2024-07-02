@@ -9,6 +9,8 @@ https://www.kaggle.com/datasets/chatrli/survey-mood
 
 -> extract and put surveys.json in project folder
 
+(the tweets dataset is already included in the Git Repository)
+
 --------------------------------------
 
 Step 2: For baseline algorithms SVM, Naive Bayes and Random Forest execute classification.py
