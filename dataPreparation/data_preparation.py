@@ -7,8 +7,8 @@ from transformers import BertTokenizer
 from dataPreparation.contractions import contractions
 from dataPreparation.feature_engineering import get_context_embedding
 
-def preprocess_text(text_example):
-    text_example = text_example.lower()
+def preprocess_surveys(text_example):
+    #text_example = text_example.lower()
 
     # handle contractions like I'll etc.
     words = text_example.split()
@@ -19,11 +19,25 @@ def preprocess_text(text_example):
 
     return text_example
 
+
+def preprocess_tweets(text_example):
+
+    # handle contractions like I'll etc.
+    words = text_example.split()
+    text_example = [contractions[word] if word in contractions else word for word in words]
+    text_example = ' '.join(text_example)
+
+    text_example = re.sub(r'@\w+', '', text_example) #remove usernames
+    text_example = re.sub(r'#\w+', '', text_example) #remove hashtags
+    text_example = re.sub(r'\d+', '', text_example) #remove numbers
+
+    return text_example
+
 def get_survey_data_for_bert(num_texts_per_label):
     with open('surveys.json', 'r') as file:
         data = json.load(file)
 
-    random.shuffle(data)
+    #random.shuffle(data)
 
     texts = []
     labels = []
@@ -40,7 +54,7 @@ def get_survey_data_for_bert(num_texts_per_label):
     for label, count in count_per_label.items():
         print(f"{label}: {count}")
 
-    preprocessed_texts = [preprocess_text(text) for text in texts]
+    preprocessed_texts = [preprocess_surveys(text) for text in texts]
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
     tokenized_texts = tokenizer(preprocessed_texts, padding=True, truncation=True, return_tensors='pt') #pt -> return pytorch tensor
     label_map = {'positive': 0, 'neutral': 1, 'negative': 2} #bert needs numerical labels
@@ -50,8 +64,7 @@ def get_survey_data_for_bert(num_texts_per_label):
 
 def get_tweet_data_for_bert(num_texts_per_label):
     df = pd.read_csv('tweets.csv')
-
-    df = df.sample(frac=1).reset_index(drop=True) #shuffle
+    #df = df.sample(frac=1).reset_index(drop=True) #shuffle
 
     texts = []
     labels = []
@@ -68,13 +81,7 @@ def get_tweet_data_for_bert(num_texts_per_label):
         print(f"{label}: {count}")
 
 
-    preprocessed_texts = [preprocess_text(text) for text in texts]
-
-    print("\nFirst 10 texts and labels:")
-    for i in range(10):
-        print(f"Text: {preprocessed_texts[i]}")
-        print(f"Label: {labels[i]}")
-        print("-" * 50)
+    preprocessed_texts = [preprocess_tweets(text) for text in texts]
 
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
     tokenized_texts = tokenizer(preprocessed_texts, padding=True, truncation=True, return_tensors='pt')
@@ -87,7 +94,7 @@ def get_survey_data_for_baselines(number_of_examples):
     with open('surveys.json', 'r') as file:
         data = json.load(file)
 
-    random.shuffle(data)
+    #random.shuffle(data)
 
     X_positive = []
     y_positive = []
@@ -107,7 +114,7 @@ def get_survey_data_for_baselines(number_of_examples):
 
         text = entry['text']
         label = entry['label']
-        preprocessed_text = preprocess_text(text)
+        preprocessed_text = preprocess_surveys(text)
 
         if label == 'positive' and count_positive < (number_of_examples / 3):
             X_positive.append(get_context_embedding(preprocessed_text))
@@ -131,7 +138,7 @@ def get_survey_data_for_baselines(number_of_examples):
 
 def get_tweets_data_for_baselines(number_of_examples):
     df = pd.read_csv('tweets.csv')
-    df = df.sample(frac=1).reset_index(drop=True)
+    #df = df.sample(frac=1).reset_index(drop=True)
 
     X_positive = []
     y_positive = []
@@ -151,7 +158,7 @@ def get_tweets_data_for_baselines(number_of_examples):
 
         text = row['Text']
         label = row['sentiment']
-        preprocessed_text = preprocess_text(text)
+        preprocessed_text = preprocess_tweets(text)
 
         if label == 'positive' and count_positive < (number_of_examples / 3):
             X_positive.append(get_context_embedding(preprocessed_text))

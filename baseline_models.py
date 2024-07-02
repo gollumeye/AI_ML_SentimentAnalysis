@@ -4,18 +4,22 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 from sklearn.naive_bayes import GaussianNB
 from sklearn.svm import SVC
-from dataPreparation.data_preparation import get_survey_data_for_baselines
+from dataPreparation.data_preparation import get_survey_data_for_baselines, get_tweets_data_for_baselines
 import numpy as np
 import wandb
 import seaborn as sns
 import pandas as pd
 
-NUMBER_OF_EXAMPLES_FOR_BASELINE_MODELS = 30000 #must be dividable by 3
+DATASET = 'Tweets' #either 'Tweets' or 'Surveys'
+NUMBER_OF_EXAMPLES_FOR_BASELINE_MODELS = 3000 #must be dividable by 3
 
 wandb.login(key='dcadd79ea8ec3fd9f6a9ebb81851bcfedd0a1b79')
 
 print("getting data...")
-X_positive, y_positive, X_negative, y_negative, X_neutral, y_neutral = get_survey_data_for_baselines(NUMBER_OF_EXAMPLES_FOR_BASELINE_MODELS)
+if DATASET == 'Surveys':
+    X_positive, y_positive, X_negative, y_negative, X_neutral, y_neutral = get_survey_data_for_baselines(NUMBER_OF_EXAMPLES_FOR_BASELINE_MODELS)
+else:
+    X_positive, y_positive, X_negative, y_negative, X_neutral, y_neutral = get_tweets_data_for_baselines(NUMBER_OF_EXAMPLES_FOR_BASELINE_MODELS)
 
 print("splitting data...")
 X_train_positive, X_test_positive, y_train_positive, y_test_positive = train_test_split(X_positive, y_positive, test_size=0.2, random_state=0)
