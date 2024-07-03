@@ -3,7 +3,7 @@ import re
 import random
 
 import pandas as pd
-from transformers import BertTokenizer
+from transformers import BertTokenizer, AutoTokenizer
 from dataPreparation.contractions import contractions
 from dataPreparation.feature_engineering import get_context_embedding
 
@@ -21,12 +21,6 @@ def preprocess_surveys(text_example):
 
 
 def preprocess_tweets(text_example):
-
-    # handle contractions like I'll etc.
-    words = text_example.split()
-    text_example = [contractions[word] if word in contractions else word for word in words]
-    text_example = ' '.join(text_example)
-
     text_example = re.sub(r'@\w+', '', text_example) #remove usernames
     text_example = re.sub(r'#\w+', '', text_example) #remove hashtags
     text_example = re.sub(r'\d+', '', text_example) #remove numbers
@@ -62,9 +56,9 @@ def get_survey_data_for_bert(num_texts_per_label):
 
     return tokenized_texts, numerical_labels
 
+
 def get_tweet_data_for_bert(num_texts_per_label):
     df = pd.read_csv('tweets.csv')
-    #df = df.sample(frac=1).reset_index(drop=True) #shuffle
 
     texts = []
     labels = []
@@ -80,11 +74,11 @@ def get_tweet_data_for_bert(num_texts_per_label):
     for label, count in count_per_label.items():
         print(f"{label}: {count}")
 
-
     preprocessed_texts = [preprocess_tweets(text) for text in texts]
 
-    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-    tokenized_texts = tokenizer(preprocessed_texts, padding=True, truncation=True, return_tensors='pt')
+    tokenizer = AutoTokenizer.from_pretrained("vinai/bertweet-base")
+    tokenized_texts = tokenizer(preprocessed_texts, padding='max_length', truncation=True, max_length=128,
+                                return_tensors='pt')
     label_map = {'positive': 0, 'neutral': 1, 'negative': 2}
     numerical_labels = [label_map[label] for label in labels]
 

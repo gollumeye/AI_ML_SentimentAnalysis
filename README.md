@@ -1,5 +1,6 @@
 
 Step 0: Install dependencies
+--> also "emoji==0.6.0"
 
 --------------------------------------
 

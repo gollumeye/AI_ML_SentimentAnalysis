@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 from sklearn.metrics import accuracy_score, classification_report, roc_auc_score, roc_curve, matthews_corrcoef, \
     confusion_matrix
-from transformers import BertModel
+from transformers import BertModel, AutoModel
 from dataPreparation.data_preparation import get_survey_data_for_bert, get_tweet_data_for_bert
 from tqdm import tqdm
 import random
@@ -37,7 +37,6 @@ wandb.init(project='AI_and_ML_project_sentiment_analysis',
            name=f'bert_based_classifier_dataset={DATASET}_num={NUMBER_OF_EXAMPLES_PER_LABEL*3}_lr={LEARNING_RATE}_epochs={NUMBER_OF_EPOCHS}_batchsize={BATCH_SIZE}',
            config={
                "learning_rate": LEARNING_RATE,
-               "architecture": "NN",
                "dataset": "Surveys",
                "epochs": NUMBER_OF_EPOCHS,
                "batch_size": BATCH_SIZE,
@@ -116,13 +115,15 @@ print("get data...")
 
 if DATASET == 'Surveys':
     tokenized_texts, numerical_labels = get_survey_data_for_bert(NUMBER_OF_EXAMPLES_PER_LABEL)
+    bert_model = BertModel.from_pretrained('bert-base-uncased')
 else:
     tokenized_texts, numerical_labels = get_tweet_data_for_bert(NUMBER_OF_EXAMPLES_PER_LABEL)
+    bert_model = AutoModel.from_pretrained("vinai/bertweet-base")
 
 print("split data into test and training set...")
 X_train_input_ids, X_train_attention_mask, y_train, X_test_input_ids, X_test_attention_mask, y_test = split_data_into_train_and_test(tokenized_texts, numerical_labels)
 
-model = BERTClassifier(BertModel.from_pretrained('bert-base-uncased'), num_classes=3)
+model = BERTClassifier(bert_model, num_classes=3)
 optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -134,11 +135,16 @@ Training Loop-
 -> In each epoch training data divided into batch
 -> Loss calculated for each batch and parameters of model optimized
 """
+
+for param in model.bert.parameters():
+    param.requires_grad = False #fix bert model (only linear layer is trained)
+
+
 print("Training BERT Classifier...")
+model.train()
 for epoch in range(NUMBER_OF_EPOCHS):
     print(f"Epoch {epoch + 1}/{NUMBER_OF_EPOCHS}")
     total_loss = 0.0
-    model.train()
     with tqdm(total=len(X_train_input_ids)) as progress_bar:
         for i in range(0, len(X_train_input_ids), BATCH_SIZE):
             optimizer.zero_grad()
@@ -206,7 +212,7 @@ print(classification_report(all_actual_labels, all_predicted_labels))
 mcc = matthews_corrcoef(all_actual_labels, all_predicted_labels)
 print("MCC:", mcc)
 
-
+"""
 report = classification_report(all_actual_labels, all_predicted_labels, output_dict=True)
 metrics = {
     'accuracy': accuracy,
@@ -231,10 +237,16 @@ for label in [0, 1, 2]:
     table.add_data(f"Recall_{label}", report[str(label)]['recall'])
     table.add_data(f"F1-Score_{label}", report[str(label)]['f1-score'])
 wandb.log({"Metrics Table": table})
+"""
 
 cm = confusion_matrix(all_actual_labels, all_predicted_labels)
 df_cm = pd.DataFrame(cm, index=[0, 1, 2], columns=[0, 1, 2])
-wandb.log({"confusion_matrix": wandb.Image(sns.heatmap(df_cm, annot=True, fmt="d", cmap="Blues"))})
+#wandb.log({"confusion_matrix": wandb.Image(sns.heatmap(df_cm, annot=True, fmt="d", cmap="Blues"))})
+plt.figure(figsize=(10, 7))
+sns.heatmap(df_cm, annot=True, fmt='d', cmap='Blues')
+plt.xlabel('Predicted Labels')
+plt.ylabel('Actual Labels')
+plt.show()
 
 #ROC curve and AUC per class:
 y_test_binarized = label_binarize(all_actual_labels, classes=[0, 1, 2])
@@ -268,7 +280,7 @@ plt.legend(loc="lower right")
 
 roc_plot_path = "roc_curve.png"
 plt.savefig(roc_plot_path)
-wandb.log({"roc_curve": wandb.Image(roc_plot_path)})
+#wandb.log({"roc_curve": wandb.Image(roc_plot_path)})
 
 plt.show()
 wandb.finish()

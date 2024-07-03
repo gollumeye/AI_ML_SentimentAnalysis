@@ -7,8 +7,6 @@ from sklearn.svm import SVC
 from dataPreparation.data_preparation import get_survey_data_for_baselines, get_tweets_data_for_baselines
 import numpy as np
 import wandb
-import seaborn as sns
-import pandas as pd
 
 DATASET = 'Tweets' #either 'Tweets' or 'Surveys'
 NUMBER_OF_EXAMPLES_FOR_BASELINE_MODELS = 3000 #must be dividable by 3
