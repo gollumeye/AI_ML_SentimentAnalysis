@@ -19,7 +19,7 @@ import seaborn as sns
 
 
 TEST_SET_PORTION = 0.2 #must be between 0 and 1
-NUMBER_OF_EXAMPLES_PER_LABEL = 1000
+NUMBER_OF_EXAMPLES_PER_LABEL = 3000
 
 TEST_SIZE = (NUMBER_OF_EXAMPLES_PER_LABEL*3)*TEST_SET_PORTION
 TRAIN_SIZE = (NUMBER_OF_EXAMPLES_PER_LABEL*3)*(1-TEST_SET_PORTION)
@@ -28,7 +28,7 @@ DATASET = 'Tweets' #either 'Tweets' or 'Surveys'
 
 #HYPERPARAMETERS:
 LEARNING_RATE = 1e-5
-NUMBER_OF_EPOCHS = 5
+NUMBER_OF_EPOCHS = 10
 DROPOUT_RATE = 0.1
 BATCH_SIZE = 8
 
@@ -38,6 +38,7 @@ wandb.init(project='AI_and_ML_project_sentiment_analysis',
            config={
                "learning_rate": LEARNING_RATE,
                "dataset": "Surveys",
+               "architecture": "BERT-based-model",
                "epochs": NUMBER_OF_EPOCHS,
                "batch_size": BATCH_SIZE,
                "dataset": DATASET
@@ -51,17 +52,17 @@ wandb.init(project='AI_and_ML_project_sentiment_analysis',
 Model: BERT Model + additional Linear Layer on top of it
 -> Linear Layer is trained for my specific classification task
 """
-class BERTClassifier(nn.Module):
+class SentimentClassifier(nn.Module):
     def __init__(self, bert_model, num_classes):
-        super(BERTClassifier, self).__init__()
+        super(SentimentClassifier, self).__init__()
         self.bert = bert_model
-        self.dropout = torch.nn.Dropout(DROPOUT_RATE) # drop random 10% to prevent overfitting
+        self.dropout = torch.nn.Dropout(DROPOUT_RATE)
         self.sentimentClassifier = nn.Linear(self.bert.config.hidden_size, num_classes)
 
-    def forward(self, input_ids, attention_mask):  # attention mask specifies which of the tokens from input_ids should be taken into account
+    def forward(self, input_ids, attention_mask):
         outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask)  # get output from BERT model
         pooled_output = outputs.pooler_output
-        raw_scores = self.sentimentClassifier(pooled_output)  # pass output from BERT to classifier to get line vulnerability predictions
+        raw_scores = self.sentimentClassifier(pooled_output)
         return raw_scores
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -123,7 +124,7 @@ else:
 print("split data into test and training set...")
 X_train_input_ids, X_train_attention_mask, y_train, X_test_input_ids, X_test_attention_mask, y_test = split_data_into_train_and_test(tokenized_texts, numerical_labels)
 
-model = BERTClassifier(bert_model, num_classes=3)
+model = SentimentClassifier(bert_model, num_classes=3)
 optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -135,11 +136,6 @@ Training Loop-
 -> In each epoch training data divided into batch
 -> Loss calculated for each batch and parameters of model optimized
 """
-
-for param in model.bert.parameters():
-    param.requires_grad = False #fix bert model (only linear layer is trained)
-
-
 print("Training BERT Classifier...")
 model.train()
 for epoch in range(NUMBER_OF_EPOCHS):
@@ -200,6 +196,7 @@ Evaluation
 -> Accuracy, Precision, Recall, F1-Score
 -> MMC: -1 worst, 0 random, 1 best
 -> ROC curve with AUC
+-> Confusion Matrix
 """
 
 print("Class 0: Positive")

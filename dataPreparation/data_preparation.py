@@ -1,11 +1,10 @@
 import json
 import re
-import random
-
 import pandas as pd
 from transformers import BertTokenizer, AutoTokenizer
 from dataPreparation.contractions import contractions
-from dataPreparation.feature_engineering import get_context_embedding
+from dataPreparation.feature_engineering_baselines import get_context_embedding
+import random
 
 def preprocess_surveys(text_example):
     #text_example = text_example.lower()
@@ -31,7 +30,7 @@ def get_survey_data_for_bert(num_texts_per_label):
     with open('surveys.json', 'r') as file:
         data = json.load(file)
 
-    #random.shuffle(data)
+    random.shuffle(data)
 
     texts = []
     labels = []
@@ -88,7 +87,7 @@ def get_survey_data_for_baselines(number_of_examples):
     with open('surveys.json', 'r') as file:
         data = json.load(file)
 
-    #random.shuffle(data)
+    random.shuffle(data)
 
     X_positive = []
     y_positive = []
@@ -132,7 +131,7 @@ def get_survey_data_for_baselines(number_of_examples):
 
 def get_tweets_data_for_baselines(number_of_examples):
     df = pd.read_csv('tweets.csv')
-    #df = df.sample(frac=1).reset_index(drop=True)
+    df = df.sample(frac=1).reset_index(drop=True) #shuffle
 
     X_positive = []
     y_positive = []
